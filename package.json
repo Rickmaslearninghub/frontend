@@ -1,0 +1,28 @@
+{
+  "name": "rmcodelab-academy-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "framer-motion": "^11.11.9",
+    "lucide-react": "^0.468.0",
+    "tailwindcss": "^3.4.10",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "clsx": "^2.1.1",
+    "class-variance-authority": "^0.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "@types/react": "^18.3.12",
+    "@types/node": "^22.10.1",
+    "@types/react-dom": "^18.3.1"
+  }
+}
