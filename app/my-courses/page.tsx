@@ -1,26 +1,38 @@
 "use client";
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { LEVELS, getCompletionPercentage, getProgressMap, getVideoLibrary } from '../lib/site-data';
+import { apiFetch, type Video } from '../lib/api';
+
+const LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Professional'] as const;
 
 export default function MyCoursesPage() {
-  const router = useRouter();
-  const [videos, setVideos] = useState(() => getVideoLibrary().filter((video) => video.isPublished));
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [progress, setProgress] = useState<Record<string, boolean>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    setVideos(getVideoLibrary().filter((video) => video.isPublished));
-  }, [router]);
+    Promise.all([
+      apiFetch<Video[]>('/api/videos'),
+      Promise.resolve(window.localStorage.getItem('rmcodelab_progress')),
+    ])
+      .then(([nextVideos, savedProgress]) => {
+        setVideos(nextVideos);
+        if (savedProgress) setProgress(JSON.parse(savedProgress) as Record<string, boolean>);
+      })
+      .catch((requestError: Error) => setError(requestError.message))
+      .finally(() => setIsLoading(false));
+  }, []);
 
   const levelSummary = useMemo(() => {
     return LEVELS.map((level) => {
       const levelVideos = videos.filter((video) => video.level === level);
-      const watched = Object.keys(getProgressMap()).filter((videoId) => levelVideos.some((video) => video.id === videoId)).length;
-      const percentage = getCompletionPercentage(level, videos);
+      const watched = levelVideos.filter((video) => progress[video.id]).length;
+      const percentage = levelVideos.length === 0 ? 0 : Math.round((watched / levelVideos.length) * 100);
       return { level, total: levelVideos.length, watched, percentage };
     });
-  }, [videos]);
+  }, [videos, progress]);
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100 lg:px-12">
@@ -32,6 +44,8 @@ export default function MyCoursesPage() {
           <p className="mt-3 max-w-2xl text-slate-300">Track the videos you have watched from start to finish and review your level completion percentage.</p>
         </div>
 
+        {isLoading && <p className="mt-8 text-slate-300">Loading your progress...</p>}
+        {error && <p className="mt-8 rounded-2xl border border-red-400/30 bg-red-950/30 p-4 text-red-200">{error}</p>}
         <div className="mt-8 space-y-6">
           {levelSummary.map((summary) => (
             <div key={summary.level} className="rounded-3xl border border-white/10 bg-slate-900/80 p-6">

@@ -2,13 +2,18 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { getNewsItems, type NewsItem } from '../lib/site-data';
+import { apiFetch, type NewsItem } from '../lib/api';
 
 export default function NewsPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    setNews(getNewsItems());
+    apiFetch<NewsItem[]>('/api/news')
+      .then((items) => setNews(items.filter((item) => item.published)))
+      .catch((requestError: Error) => setError(requestError.message))
+      .finally(() => setIsLoading(false));
   }, []);
 
   return (
@@ -20,17 +25,16 @@ export default function NewsPage() {
           <h1 className="mt-3 text-4xl font-black text-white">Announcements & updates</h1>
         </div>
 
+        {isLoading && <p className="mt-8 text-slate-300">Loading announcements...</p>}
+        {error && <p className="mt-8 rounded-2xl border border-red-400/30 bg-red-950/30 p-4 text-red-200">{error}</p>}
         <div className="mt-8 space-y-6">
-          {news.length === 0 ? (
+          {!isLoading && news.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/10 bg-slate-900/80 p-8 text-center text-slate-300">No announcements have been added yet.</div>
           ) : (
             news.map((entry) => (
               <article key={entry.id} className="rounded-3xl border border-white/10 bg-slate-900/80 p-6">
                 <h2 className="text-2xl font-bold text-white">{entry.title}</h2>
-                <p className="mt-3 text-slate-300">{entry.summary}</p>
-                {entry.pdfUrl && (
-                  <a href={entry.pdfUrl} target="_blank" rel="noreferrer" className="mt-5 inline-block rounded-full bg-blue-600 px-4 py-2 font-semibold text-white">Open PDF</a>
-                )}
+                <p className="mt-3 text-slate-300">{entry.content}</p>
               </article>
             ))
           )}

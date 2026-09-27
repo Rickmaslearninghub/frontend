@@ -3,44 +3,36 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useEffect, useState } from 'react';
-import { getAuthUser, getPendingRedirect, getRegisteredAccounts, setAuthUser, setPendingRedirect, setRegisteredAccounts } from '../lib/site-data';
+import { apiFetch, type AuthResponse } from '../lib/api';
 
 function RegisterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectParam = searchParams.get('redirect') || getPendingRedirect();
+  const redirectParam = searchParams.get('redirect') || '/curriculum';
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (getAuthUser()) {
+    if (window.localStorage.getItem('rmcodelab_token')) {
       router.push(redirectParam || '/curriculum');
     }
   }, [redirectParam, router]);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    const email = form.email.trim().toLowerCase();
-    const password = form.password.trim();
-    if (!email || !password) {
-      setError('Please provide both email and password.');
-      return;
+    setError('');
+    setIsLoading(true);
+    try {
+      const result = await apiFetch<AuthResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify({ ...form, name: form.name.trim() || 'New learner', email: form.email.trim().toLowerCase() }) });
+      window.localStorage.setItem('rmcodelab_token', result.token);
+      window.localStorage.setItem('rmcodelab_user', JSON.stringify(result.user));
+      router.push(redirectParam || '/curriculum');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to create your account.');
+    } finally {
+      setIsLoading(false);
     }
-
-    const accounts = getRegisteredAccounts();
-    const alreadyExists = accounts.some((account) => account.email.toLowerCase() === email);
-    if (alreadyExists) {
-      setError('An account with this email already exists. Please sign in instead.');
-      return;
-    }
-
-    const account = { name: form.name.trim() || 'New learner', email, password };
-    const nextAccounts = [...accounts, account];
-    setRegisteredAccounts(nextAccounts);
-    setAuthUser(account);
-    setPendingRedirect(redirectParam || '/curriculum');
-    router.push(redirectParam || '/curriculum');
   };
 
   return (
@@ -55,7 +47,7 @@ function RegisterPageContent() {
           <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white placeholder:text-slate-400" placeholder="Full Name" />
           <input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white placeholder:text-slate-400" placeholder="Email" required />
           <input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white placeholder:text-slate-400" placeholder="Password" required />
-          <button type="submit" className="w-full rounded-2xl bg-amber-500 px-4 py-3 font-semibold text-slate-950">Register</button>
+          <button type="submit" disabled={isLoading} className="w-full rounded-2xl bg-amber-500 px-4 py-3 font-semibold text-slate-950 disabled:opacity-60">{isLoading ? 'Creating account...' : 'Register'}</button>
         </form>
         <p className="mt-4 text-sm text-slate-400">
           Already have an account? <Link href="/login" className="text-amber-400">Login</Link>

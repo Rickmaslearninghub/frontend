@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { getYouTubeVideoId } from './lib/site-data';
+import { getYouTubeVideoId } from './lib/api';
 
 type Props = {
   url: string;

@@ -3,34 +3,36 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useEffect, useState } from 'react';
-import { getAuthUser, getPendingRedirect, getRegisteredAccounts, setAuthUser, setPendingRedirect } from '../lib/site-data';
+import { apiFetch, type AuthResponse } from '../lib/api';
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectParam = searchParams.get('redirect') || getPendingRedirect();
+  const redirectParam = searchParams.get('redirect') || '/curriculum';
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (getAuthUser()) {
+    if (window.localStorage.getItem('rmcodelab_token')) {
       router.push(redirectParam || '/curriculum');
     }
   }, [redirectParam, router]);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const accounts = getRegisteredAccounts();
-    const match = accounts.find((account) => account.email.toLowerCase() === form.email.toLowerCase().trim() && account.password === form.password);
-
-    if (!match) {
-      setError('Incorrect email or password. Please create an account or use the correct details.');
-      return;
+    setError('');
+    setIsLoading(true);
+    try {
+      const result = await apiFetch<AuthResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify(form) });
+      window.localStorage.setItem('rmcodelab_token', result.token);
+      window.localStorage.setItem('rmcodelab_user', JSON.stringify(result.user));
+      router.push(redirectParam || '/curriculum');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to sign in.');
+    } finally {
+      setIsLoading(false);
     }
-
-    setAuthUser({ name: match.name, email: match.email, password: match.password });
-    setPendingRedirect(redirectParam || '/curriculum');
-    router.push(redirectParam || '/curriculum');
   };
 
   return (
@@ -58,7 +60,7 @@ function LoginPageContent() {
             required
             className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white placeholder:text-slate-400"
           />
-          <button type="submit" className="w-full rounded-2xl bg-sky-600 px-4 py-3 font-semibold text-white transition hover:bg-sky-500">Login</button>
+          <button type="submit" disabled={isLoading} className="w-full rounded-2xl bg-sky-600 px-4 py-3 font-semibold text-white transition hover:bg-sky-500 disabled:opacity-60">{isLoading ? 'Signing in...' : 'Login'}</button>
         </form>
         <p className="mt-4 text-sm text-slate-400">
           New here? <Link href="/register" className="text-amber-400">Create account</Link>

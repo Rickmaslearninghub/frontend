@@ -3,23 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowRight, BadgeCheck, BookOpen, Brain, Facebook, FileText, Instagram, Mail, Menu, Music2, Phone, ShieldCheck, Sparkles, Youtube, Zap } from 'lucide-react';
-import { CONTACT_EMAIL, LEVELS, getBannerText, getVideoLibrary } from './lib/site-data';
+import { apiFetch, type Course, type NewsItem } from './lib/api';
 
-const featuredCourses = [
-  { title: 'AI & Automation', description: 'Practical automation systems, AI workflows, and business transformation.' },
-  { title: 'Python Programming', description: 'Solve real-world problems with Python, automation, and coding logic.' },
-  { title: 'Web Development', description: 'Build modern websites, dashboards, and digital products from scratch.' },
-  { title: 'Canva Masterclass', description: 'Create high-impact graphics and creative assets for brands and business.' },
-  { title: 'Prompt Engineering', description: 'Master AI prompting, tool workflows, and productivity systems.' },
-  { title: 'Video Editing', description: 'Edit short-form and professional stories for online growth and business.' },
-];
-
-const stats = [
-  { value: '10,000+', label: 'Students' },
-  { value: '250+', label: 'Video Lessons' },
-  { value: '50+', label: 'Professional Courses' },
-  { value: '95%', label: 'Completion Rate' },
-];
+const CONTACT_EMAIL = 'fedrickmashili601@gmail.com';
+const LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Professional'] as const;
 
 export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -27,10 +14,21 @@ export default function HomePage() {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [contactForm, setContactForm] = useState({ name: '', feedback: '' });
-  const [bannerText, setBannerTextState] = useState('');
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [videoCount, setVideoCount] = useState(0);
+  const [bannerText] = useState('Learn with confidence. Build your future with RMCodeLab Academy.');
 
   useEffect(() => {
-    setBannerTextState(getBannerText());
+    Promise.all([
+      apiFetch<Course[]>('/api/courses'),
+      apiFetch<NewsItem[]>('/api/news'),
+      apiFetch<{ id: string }[]>('/api/videos'),
+    ]).then(([nextCourses, nextNews, videos]) => {
+      setCourses(nextCourses.filter((course) => course.isPublished));
+      setNews(nextNews.filter((entry) => entry.published));
+      setVideoCount(videos.length);
+    }).catch((error: Error) => console.error('Failed to load academy content:', error));
   }, []);
 
   const handleContactSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -102,7 +100,12 @@ export default function HomePage() {
             </p>
 
             <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {stats.map((stat) => (
+              {[
+                { value: videoCount.toString(), label: 'Video Lessons' },
+                { value: courses.length.toString(), label: 'Published Courses' },
+                { value: news.length.toString(), label: 'Announcements' },
+                { value: '100%', label: 'Open Access' },
+              ].map((stat) => (
                 <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <p className="text-2xl font-black text-transparent bg-gradient-to-r from-blue-600 to-amber-500 bg-clip-text">{stat.value}</p>
                   <p className="mt-1 text-sm text-slate-600">{stat.label}</p>
@@ -121,7 +124,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            {featuredCourses.map((course) => (
+            {courses.slice(0, 6).map((course) => (
               <div key={course.title} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-amber-500 text-white">
                   {course.title.includes('AI') ? <Brain size={22} /> : course.title.includes('Python') ? <BookOpen size={22} /> : course.title.includes('Web') ? <Zap size={22} /> : <Sparkles size={22} />}
@@ -225,10 +228,10 @@ export default function HomePage() {
           <div>
             <h3 className="text-xl font-black text-slate-900">News</h3>
             <div className="mt-5 space-y-3 text-slate-600">
-              {getVideoLibrary().slice(0, 3).map((video) => (
-                <div key={video.id} className="rounded-xl border border-slate-200 bg-white p-3">
-                  <p className="font-semibold text-slate-900">{video.title}</p>
-                  <p className="mt-1 text-xs text-slate-500">{video.level}</p>
+              {news.slice(0, 3).map((entry) => (
+                <div key={entry.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                  <p className="font-semibold text-slate-900">{entry.title}</p>
+                  <p className="mt-1 line-clamp-2 text-xs text-slate-500">{entry.content}</p>
                 </div>
               ))}
             </div>

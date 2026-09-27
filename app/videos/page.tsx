@@ -4,32 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Play, Filter, Search, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+import { apiFetch, getYouTubeVideoId, type Video } from '../lib/api';
 const levels = ['All', 'Beginner', 'Intermediate', 'Advanced', 'Professional'];
 const categories = ['All', 'General', 'AI', 'Programming', 'Web Development', 'Design', 'Video Editing', 'Business'];
-
-type Video = {
-  id: string;
-  title: string;
-  description?: string | null;
-  youtubeUrl: string;
-  level: string;
-  category: string;
-};
-
-const getYouTubeVideoId = (url: string) => {
-  try {
-    const parsedUrl = new URL(url);
-    const host = parsedUrl.hostname.replace(/^www\./, '').toLowerCase();
-    const id = host === 'youtu.be'
-      ? parsedUrl.pathname.split('/')[1]
-      : parsedUrl.searchParams.get('v') || parsedUrl.pathname.match(/^\/(?:embed|shorts|live)\/([^/?#]+)/)?.[1];
-    return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
-  } catch {
-    return null;
-  }
-};
 
 export default function VideosPage() {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -39,6 +16,7 @@ export default function VideosPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchVideos();
@@ -51,12 +29,9 @@ export default function VideosPage() {
   const fetchVideos = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_URL}/api/videos`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Unable to load videos.');
-      setVideos((data || []) as Video[]);
-    } catch (error) {
-      console.error('Failed to fetch videos:', error);
+      setVideos(await apiFetch<Video[]>('/api/videos'));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to load videos.');
     } finally {
       setIsLoading(false);
     }
@@ -167,6 +142,8 @@ export default function VideosPage() {
             </div>
             <p className="mt-4 text-gray-600">Loading videos...</p>
           </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 py-12 text-center text-red-700">{error}</div>
         ) : filteredVideos.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-gray-200">
             <Play size={48} className="mx-auto text-gray-400 mb-4" />

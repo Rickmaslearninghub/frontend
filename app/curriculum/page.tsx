@@ -4,14 +4,21 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { LEVELS, getVideoLibrary } from '../lib/site-data';
+import { apiFetch, type Video } from '../lib/api';
+
+const LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Professional'] as const;
 
 export default function CurriculumPage() {
   const router = useRouter();
-  const [videos, setVideos] = useState(() => getVideoLibrary().filter((video) => video.isPublished));
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    setVideos(getVideoLibrary().filter((video) => video.isPublished));
+    apiFetch<Video[]>('/api/videos')
+      .then(setVideos)
+      .catch((requestError: Error) => setError(requestError.message))
+      .finally(() => setIsLoading(false));
   }, []);
 
   const handleLevelOpen = (level: string) => {
@@ -31,6 +38,8 @@ export default function CurriculumPage() {
           <p className="mt-3 max-w-2xl text-slate-300">Choose one of the four learning levels to access the videos uploaded by the admin for that stage.</p>
         </div>
 
+        {isLoading && <p className="mt-8 text-slate-300">Loading curriculum...</p>}
+        {error && <p className="mt-8 rounded-2xl border border-red-400/30 bg-red-950/30 p-4 text-red-200">{error}</p>}
         <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {LEVELS.map((level) => {
             const levelVideos = videos.filter((video) => video.level === level);

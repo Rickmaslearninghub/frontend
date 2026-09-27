@@ -1,34 +1,44 @@
 "use client";
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, PlayCircle, X } from 'lucide-react';
-import { getProgressMap, getVideoLibrary, getYouTubeVideoId, markVideoWatched, type VideoItem } from '../../lib/site-data';
+import { apiFetch, getYouTubeVideoId, type Video } from '../../lib/api';
 import VideoPlayer from '../../VideoPlayer';
 
 export default function LevelPage() {
-  const router = useRouter();
   const params = useParams() as { level?: string };
   const levelKey = params.level || 'beginner';
-  const [videos, setVideos] = useState(() => getVideoLibrary().filter((video) => video.level.toLowerCase() === levelKey.toLowerCase() && video.isPublished));
+  const [videos, setVideos] = useState<Video[]>([]);
   const [progress, setProgress] = useState<Record<string, boolean>>({});
-  const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const nextVideos = getVideoLibrary().filter((video) => video.level.toLowerCase() === levelKey.toLowerCase() && video.isPublished);
-    setVideos(nextVideos);
-    setProgress(getProgressMap());
-  }, [levelKey, router]);
+    setIsLoading(true);
+    const apiLevel = levelKey.charAt(0).toUpperCase() + levelKey.slice(1).toLowerCase();
+    apiFetch<Video[]>(`/api/videos/${encodeURIComponent(apiLevel)}`)
+      .then(setVideos)
+      .catch((requestError: Error) => setError(requestError.message))
+      .finally(() => setIsLoading(false));
+  }, [levelKey]);
+
+  useEffect(() => {
+    const savedProgress = window.localStorage.getItem('rmcodelab_progress');
+    if (savedProgress) setProgress(JSON.parse(savedProgress) as Record<string, boolean>);
+  }, []);
 
   const levelTitle = useMemo(() => ({ beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced', professional: 'Professional' }[levelKey.toLowerCase()] || 'Beginner'), [levelKey]);
 
   const handleWatched = (videoId: string) => {
-    markVideoWatched(videoId);
-    setProgress(getProgressMap());
+    const nextProgress = { ...progress, [videoId]: true };
+    setProgress(nextProgress);
+    window.localStorage.setItem('rmcodelab_progress', JSON.stringify(nextProgress));
   };
 
-  const openPlayer = (video: VideoItem) => setSelectedVideo(video);
+  const openPlayer = (video: Video) => setSelectedVideo(video);
   const closePlayer = () => setSelectedVideo(null);
 
   return (
@@ -44,6 +54,8 @@ export default function LevelPage() {
           <p className="mt-3 max-w-2xl text-slate-300">Find the videos uploaded by the admin for this level and track the lessons you complete.</p>
         </div>
 
+        {isLoading && <p className="mt-8 text-slate-300">Loading lessons...</p>}
+        {error && <p className="mt-8 rounded-2xl border border-red-400/30 bg-red-950/30 p-4 text-red-200">{error}</p>}
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
           {videos.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/10 bg-slate-900/60 p-10 text-center text-slate-300 lg:col-span-2">
